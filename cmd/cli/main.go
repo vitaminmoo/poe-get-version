@@ -8,6 +8,13 @@ import (
 )
 
 func main() {
+	poe, err := version.Poe()
+	if err != nil {
+		log.Printf("getting poe2 version: %v", err)
+		poe = "error"
+	}
+	fmt.Printf("poe: %s\n", poe)
+
 	poe2, err := version.Poe2()
 	if err != nil {
 		log.Printf("getting poe2 version: %v", err)

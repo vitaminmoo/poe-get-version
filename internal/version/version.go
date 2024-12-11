@@ -1,12 +1,15 @@
 package version
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
 )
 
 const (
+	mock          = false
 	poePatchHost  = "patch.pathofexile.com:12995"
 	poe2PatchHost = "patch.pathofexile2.com:13060"
 )
@@ -48,12 +51,20 @@ var poe2example = []byte{
 }
 
 func Poe() (string, error) {
-	result, err := get(poePatchHost, []byte{1, 6})
-	if err != nil {
-		return "", fmt.Errorf("sending: %w", err)
+	var result []byte
+	var err error
+	if mock {
+		result = poe1example
+	} else {
+		result, err = get(poePatchHost, []byte{1, 6})
+		if err != nil {
+			return "", fmt.Errorf("sending: %w", err)
+		}
 	}
-	// result := poe1example
-	version := extract(result)
+	version, err := parse(result)
+	if err != nil {
+		return "", fmt.Errorf("parsing poe: %w", err)
+	}
 	if !strings.HasPrefix(version, "3.") {
 		return "", fmt.Errorf("unexpected version: %s", version)
 	}
@@ -61,16 +72,74 @@ func Poe() (string, error) {
 }
 
 func Poe2() (string, error) {
-	result, err := get(poe2PatchHost, []byte{1, 7})
-	if err != nil {
-		return "", fmt.Errorf("sending: %w", err)
+	var result []byte
+	var err error
+	if mock {
+		result = poe2example
+	} else {
+		result, err = get(poe2PatchHost, []byte{1, 7})
+		if err != nil {
+			return "", fmt.Errorf("sending: %w", err)
+		}
 	}
-	// result := poe2example
-	version := extract(result)
+	version, err := parse(result)
+	if err != nil {
+		return "", fmt.Errorf("parsing poe2: %w", err)
+	}
 	if !strings.HasPrefix(version, "4.") {
 		return "", fmt.Errorf("unexpected version: %s", version)
 	}
 	return version, nil
+}
+
+func header(r *bytes.Reader) error {
+	var protoVer uint8
+	var unknown [4]uint64
+	if err := binary.Read(r, binary.BigEndian, &protoVer); err != nil {
+		return fmt.Errorf("reading protocol version: %w", err)
+	}
+	if err := binary.Read(r, binary.BigEndian, &unknown); err != nil {
+		return fmt.Errorf("reading unknown: %w", err)
+	}
+	if protoVer != 2 {
+		return fmt.Errorf("unexpected protocol version: %d", protoVer)
+	}
+	return nil
+}
+
+func lenString(r *bytes.Reader) (string, error) {
+	var len uint16
+	if err := binary.Read(r, binary.BigEndian, &len); err != nil {
+		return "", fmt.Errorf("reading length: %w", err)
+	}
+	len *= 2 // utf16 :/
+	buf := make([]byte, len)
+	if _, err := r.Read(buf); err != nil {
+		return "", fmt.Errorf("reading string: %w", err)
+	}
+	return utf16ToString(buf), nil
+}
+
+func parse(data []byte) (string, error) {
+	// hexdump(data)
+	r := bytes.NewReader(data)
+	err := header(r)
+	if err != nil {
+		return "", fmt.Errorf("reading header: %w", err)
+	}
+	str, err := lenString(r)
+	if err != nil {
+		return "", fmt.Errorf("reading length-string: %w", err)
+	}
+	str, err = lenString(r)
+	if err != nil {
+		return "", fmt.Errorf("reading length-string: %w", err)
+	}
+	str = strings.TrimPrefix(str, "https://patch")
+	str = strings.TrimPrefix(str, "-poe2")
+	str = strings.TrimPrefix(str, ".poecdn.com/")
+	str = strings.TrimSuffix(str, "/")
+	return str, nil
 }
 
 func get(host string, data []byte) ([]byte, error) {
@@ -88,14 +157,7 @@ func get(host string, data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading: %w", err)
 	}
-	hexdump(buf[:n])
 	return buf[:n], nil
-}
-
-func extract(data []byte) string {
-	data = data[35:(35 + (data[34] * 2))]
-	url := utf16ToString(data)
-	return strings.SplitN(url, "/", 5)[3]
 }
 
 func utf16ToString(data []byte) string {
