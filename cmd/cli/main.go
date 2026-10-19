@@ -28,7 +28,7 @@ func hexdump(data []byte) {
 		fmt.Printf("%08x  ", i)
 
 		// Hex dump
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			if i+j < len(data) {
 				fmt.Printf("%02x ", data[i+j])
 			} else {
@@ -41,7 +41,7 @@ func hexdump(data []byte) {
 
 		// ASCII dump
 		fmt.Print(" |")
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			if i+j < len(data) {
 				if data[i+j] >= 32 && data[i+j] <= 126 {
 					fmt.Printf("%c", data[i+j])

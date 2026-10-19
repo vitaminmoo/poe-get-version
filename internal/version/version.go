@@ -1,3 +1,4 @@
+// Package version provides functions to get the current version of Path of Exile and Path of Exile 2
 package version
 
 import (
@@ -86,7 +87,8 @@ func Poe2() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing poe2: %w", err)
 	}
-	if !strings.HasPrefix(version, "4.") {
+	// CDN paths were 4.x.x.x.x through 0.4, then switched to the game version (0.5.x.x.x)
+	if !strings.HasPrefix(version, "4.") && !strings.HasPrefix(version, "0.") {
 		return "", fmt.Errorf("unexpected version: %s", version)
 	}
 	return version, nil
@@ -127,11 +129,11 @@ func parse(data []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading header: %w", err)
 	}
-	str, err := lenString(r)
+	_, err = lenString(r)
 	if err != nil {
 		return "", fmt.Errorf("reading length-string: %w", err)
 	}
-	str, err = lenString(r)
+	str, err := lenString(r)
 	if err != nil {
 		return "", fmt.Errorf("reading length-string: %w", err)
 	}
@@ -173,7 +175,7 @@ func hexdump(data []byte) {
 		fmt.Printf("%08x  ", i)
 
 		// Hex dump
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			if i+j < len(data) {
 				fmt.Printf("%02x ", data[i+j])
 			} else {
@@ -186,7 +188,7 @@ func hexdump(data []byte) {
 
 		// ASCII dump
 		fmt.Print(" |")
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			if i+j < len(data) {
 				if data[i+j] >= 32 && data[i+j] <= 126 {
 					fmt.Printf("%c", data[i+j])
