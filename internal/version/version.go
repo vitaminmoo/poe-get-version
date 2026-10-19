@@ -5,14 +5,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"strings"
+	"time"
 )
 
 const (
 	mock          = false
 	poePatchHost  = "patch.pathofexile.com:12995"
 	poe2PatchHost = "patch.pathofexile2.com:13060"
+	timeout       = 5 * time.Second
 )
 
 var poe1example = []byte{
@@ -116,7 +119,7 @@ func lenString(r *bytes.Reader) (string, error) {
 	}
 	len *= 2 // utf16 :/
 	buf := make([]byte, len)
-	if _, err := r.Read(buf); err != nil {
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return "", fmt.Errorf("reading string: %w", err)
 	}
 	return utf16ToString(buf), nil
@@ -145,11 +148,14 @@ func parse(data []byte) (string, error) {
 }
 
 func get(host string, data []byte) ([]byte, error) {
-	conn, err := net.Dial("tcp", host)
+	conn, err := net.DialTimeout("tcp", host, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("dialing: %w", err)
 	}
 	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, fmt.Errorf("setting deadline: %w", err)
+	}
 	_, err = conn.Write(data)
 	if err != nil {
 		return nil, fmt.Errorf("writing: %w", err)

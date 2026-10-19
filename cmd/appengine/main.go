@@ -46,6 +46,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		versions, cached, err := getCache(ctx, "poe-versions", getVersions)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(cacheFor.Seconds())))
@@ -76,7 +77,7 @@ func getVersions() (string, error) {
 
 	json, err := json.Marshal(output)
 	if err != nil {
-		fmt.Println(err)
+		return "", fmt.Errorf("marshaling versions: %w", err)
 	}
 	return string(json), nil
 }
